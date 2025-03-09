@@ -132,9 +132,13 @@ function randomColdplay() {
   // Randomly select a synth type
   const synthOptions = ['MonoSynth', 'DuoSynth', 'FMSynth', 'AMSynth'];
   const synthChoice = nn.random(synthOptions);
-  // Create a randomized synth
-  synth = new Tone.PolySynth(Tone.Synth, {
-    oscillator: { type: synthChoice },
+  
+  // Dispose of old synth before creating a new one
+  if (synth) synth.dispose();
+
+  // Create the correct synth type (without PolySynth)
+  synth = new Tone[synthChoice]({
+    oscillator: { type: "sawtooth" }, // Synth wave type
     envelope: {
       attack: nn.random(0.01, 0.1),
       decay: nn.random(0.1, 0.3),
@@ -144,7 +148,7 @@ function randomColdplay() {
   }).toDestination();
 
   // Add echo effect
-  const echo = new Tone.FeedbackDelay("8n", nn.random(0.3, 0.7)).toDestination();
+  const echo = new Tone.FeedbackDelay("8n", nn.random(0.3, 0.4)).toDestination();
   synth.connect(echo);
 }
   
