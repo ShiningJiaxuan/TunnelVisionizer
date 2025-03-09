@@ -134,7 +134,7 @@ function randomColdplay() {
   const synthChoice = nn.random(synthOptions);
   // Create a randomized synth
   synth = new Tone.PolySynth(Tone.Synth, {
-    oscillator: { type: synthType },
+    oscillator: { type: synthChoice },
     envelope: {
       attack: nn.random(0.01, 0.1),
       decay: nn.random(0.1, 0.3),
