@@ -12,7 +12,13 @@ let totalBars = 4
 let rightHandScale, rightHandArp, synth, synthRootNote, synthType;
 let hasStarted = false; 
   
-const reverb = new Tone.Reverb({ wet: 0.75, decay: 5 }).toDestination();
+const reverb = new Tone.Reverb({ wet: 0.75, decay: 2 }).toDestination();
+
+const percussion = new Tone.MembraneSynth({
+  pitchDecay: 0.05,
+  envelope: { attack: 0.01, decay: 0.5, sustain: 0, release: 0.5 },
+}).toDestination();
+
 const piano = new Tone.Sampler({
     baseUrl: "https://tonejs.github.io/audio/salamander/",
     urls: {
@@ -52,6 +58,24 @@ const piano = new Tone.Sampler({
 
 piano.toDestination()
 piano.connect(reverb)
+
+const noisegravel = new Tone.NoiseSynth().toDestination()
+
+const presets = {
+  Gravel: {
+    noise: {
+      type: 'pink',
+      playbackRate: 0.1
+    },
+    envelope: {
+      attack: 0.5,
+      decay: 2,
+      sustain: 0.5,
+      release: 3
+    }
+  }
+}
+
 // FUNCTIONS .......................................................
   
 function createScale (root, mode) {
@@ -90,20 +114,24 @@ function randomColdplay() {
   rightHandArp = [];
   for (let i = 0; i < totalBars; i++) {
     let motif = [0]; // Always start on root note
-    for (let j = 1; j < 7; j++) {
-      let prev = motif[j - 1];
-      let next = prev + (nn.random() > 0.5 ? 1 : -1);
-      next = Math.max(0, Math.min(next, 7)); // Keep within scale
-      motif.push(next);
+    let midPoint = nn.randomInt(3, 6); // Pick a mid-range peak
+
+    // Ascending part
+    for (let j = 1; j < midPoint; j++) {
+      motif.push(j);
     }
+
+    // Descending part
+    for (let j = midPoint - 1; j > 0; j--) {
+      motif.push(j);
+    }
+
     motif.push(0); // Ensure last note of the bar returns to root
     rightHandArp.push(motif);
   }
-
   // Randomly select a synth type
-  const synthOptions = ['sine', 'square', 'triangle', 'sawtooth'];
-  synthType = nn.random(synthOptions);
-
+  const synthOptions = ['MonoSynth', 'DuoSynth', 'FMSynth', 'AMSynth'];
+  const synthChoice = nn.random(synthOptions);
   // Create a randomized synth
   synth = new Tone.PolySynth(Tone.Synth, {
     oscillator: { type: synthType },
@@ -125,7 +153,7 @@ function play (time) {
   const s = step % totalSteps
   const b = bar % totalBars
 
-  if (s % 4 === 9) {
+  if (s % 4 === 0) {
     synth.triggerAttackRelease(synthRootNote, '2n', time);
   }
 
