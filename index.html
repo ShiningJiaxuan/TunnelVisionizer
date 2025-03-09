@@ -6,17 +6,13 @@
   
 Tone.Transport.bpm.value = 120
 let step = 0
-let notes = [
-  'C4', 'E4', 'G4', // C major (4th octave)
-  'C5', 'E5', 'G5' // C major (5th octave)
-]
-
-const reverb = new Tone.Reverb({
-  wet: 0.75,
-  decay: 5
-}).toDestination()
-
-
+let bar = 0
+let totalSteps = 8
+let totalBars = 4
+let rightHandScale, rightHandArp, synth, synthRootNote, synthType;
+let hasStarted = false; 
+  
+const reverb = new Tone.Reverb({ wet: 0.75, decay: 5 }).toDestination();
 const piano = new Tone.Sampler({
     baseUrl: "https://tonejs.github.io/audio/salamander/",
     urls: {
@@ -57,29 +53,120 @@ const piano = new Tone.Sampler({
 piano.toDestination()
 piano.connect(reverb)
 // FUNCTIONS .......................................................
-function play () {
-piano.triggerAttackRelease(['C4', 'E4', 'G4'], '8n')
-}
+  
+function createScale (root, mode) {
+  const scale = [root]
+  let note = root.slice(0, -1) // ex: 'C' from 'C4'
+  let octave = parseInt(root.slice(-1)) // ex: 4 from 'C4'
+  const notes = [
+    'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'
+  ]
 
-function toggle () {
-if (Tone.Transport.state === 'started') {
-  Tone.Transport.stop()
-  toggleButton.content('cold-play')
-} else {
-  Tone.Transport.start()
-  toggleButton.content('cold-stop')
+  for (const step of mode) {
+    const noteIndex = notes.indexOf(note)
+    const nextNoteIndex = (noteIndex + step) % notes.length
+    if (nextNoteIndex < noteIndex) octave += 1
+    note = notes[nextNoteIndex]
+    scale.push(note + octave)
+  }
+
+  return scale
 }
+  
+function randomColdplay() {
+  // Set a random BPM
+  Tone.Transport.bpm.value = nn.randomInt(120, 150);
+
+  // Choose a random key and generate the major scale
+  const major = [2, 2, 1, 2, 2, 2, 1]; // Ionian mode
+  const keys = ['F', 'D', 'G', 'C', 'D#', 'A#'];
+  const key = nn.random(keys);
+  rightHandScale = createScale(`${key}4`, major);
+
+  // Set the root note for the synth (first note of the scale)
+  synthRootNote = rightHandScale[0];
+
+  // Generate a dynamic right-hand arpeggio pattern
+  rightHandArp = [];
+  for (let i = 0; i < totalBars; i++) {
+    let motif = [0]; // Always start on root note
+    for (let j = 1; j < 7; j++) {
+      let prev = motif[j - 1];
+      let next = prev + (nn.random() > 0.5 ? 1 : -1);
+      next = Math.max(0, Math.min(next, 7)); // Keep within scale
+      motif.push(next);
+    }
+    motif.push(0); // Ensure last note of the bar returns to root
+    rightHandArp.push(motif);
+  }
+
+  // Randomly select a synth type
+  const synthOptions = ['sine', 'square', 'triangle', 'sawtooth'];
+  synthType = nn.random(synthOptions);
+
+  // Create a randomized synth
+  synth = new Tone.PolySynth(Tone.Synth, {
+    oscillator: { type: synthType },
+    envelope: {
+      attack: nn.random(0.01, 0.1),
+      decay: nn.random(0.1, 0.3),
+      sustain: nn.random(0.4, 0.8),
+      release: nn.random(2, 5)
+    }
+  }).toDestination();
+
+  // Add echo effect
+  const echo = new Tone.FeedbackDelay("8n", nn.random(0.3, 0.7)).toDestination();
+  synth.connect(echo);
 }
+  
 function play (time) {
-  const i = step % notes.length
-  const note = notes[i]
+  // get current step && bar index
+  const s = step % totalSteps
+  const b = bar % totalBars
+
+  if (s % 4 === 9) {
+    synth.triggerAttackRelease(synthRootNote, '2n', time);
+  }
+
+  // play right hand arpeggio
+  const arp = rightHandArp[b];
+  const notes = arp.map(i => rightHandScale[i]);
+  const note = notes[s]
   piano.triggerAttackRelease(note, '8n', time)
-  step++ // increase step counter by 1
+
+  // some visual feedbak
+  const hue = nn.randomInt(190, 230) // shade of blue
+  const saturation = nn.randomInt(25, 65)
+  nn.get('body').css({
+    backgroundColor: `hsl(${hue}deg, ${saturation}%, 50%)`
+  })
+
+  // update step/bar for next play call
+  step++
+  if (s === totalSteps - 1) bar++
+}
+function toggle() {
+  if (!hasStarted) {
+    // First time clicking "cold-play", initialize music
+    hasStarted = true;
+    randomColdplay();
+    Tone.Transport.start();
+    toggleButton.content('cold-stop');
+  } else {
+    if (Tone.Transport.state === 'started') {
+      Tone.Transport.stop();
+      toggleButton.content('cold-play');
+    } else {
+      Tone.Transport.start();
+      toggleButton.content('cold-stop');
+    }
+  }
 }
 
 // timing events ...................................................
 new Tone.Loop(play, '8n').start()
-  
+
 // UI ELEMENTS .....................................................
 
 const buttonCSS = {
@@ -120,8 +207,9 @@ nn.create('button')
   .content('randomize')
   .addTo(container)
   .css(buttonCSS)
-  .on('mouseover', buttonHover)
-  .on('mouseout', buttonHover)
+  .on('click', () => {
+    randomColdplay();
+  });
   
 
 </script>
