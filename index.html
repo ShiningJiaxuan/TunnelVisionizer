@@ -119,7 +119,7 @@ function randomTunnelVision() {
       release: nn.random(2, 5)
     }
   }).toDestination();
-  synth.volume.value = -8;  // Lowers the synth by 12 dB
+  synth.volume.value = -7;  // Lowers the synth by 12 dB
   // Add echo effect
   const echo = new Tone.FeedbackDelay("8n", nn.random(0.3, 0.4)).toDestination();
   synth.connect(echo);
@@ -173,14 +173,14 @@ function toggle() {
     hasStarted = true;
     randomTunnelVision();
     Tone.Transport.start();
-    toggleButton.content('Tunnel-Visualize');
+    toggleButton.content('Tunnel-Envision');
   } else {
     if (Tone.Transport.state === 'started') {
       Tone.Transport.stop();
-      toggleButton.content('Tunnel-Visualize');
+      toggleButton.content('Tunnel-Envision');
     } else {
       Tone.Transport.start();
-      toggleButton.content('Tunnel-Visualized');
+      toggleButton.content('Tunnel-Envisionized');
     }
   }
 }
