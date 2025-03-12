@@ -34,6 +34,7 @@ const piano = new Tone.Sampler({
     release: 1
 }).toDestination();
 piano.connect(reverb);
+piano.volume.value = 3;  // Raises the piano volume by 3 dB
 
 // FUNCTIONS .......................................................
   
@@ -56,38 +57,54 @@ function createScale (root, mode) {
   return scale
 }
   
-function randomColdplay() {
+function randomTunnelVision() {
   // Set a random BPM
   Tone.Transport.bpm.value = nn.randomInt(120, 150);
 
   // Choose a random key and generate the major scale
   const major = [2, 2, 1, 2, 2, 2, 1]; // Ionian mode
-  const keys = ['F', 'D', 'G', 'C', 'D#', 'A#'];
+  const keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   const key = nn.random(keys);
   rightHandScale = createScale(`${key}4`, major);
 
   // Set the root note for the synth (first note of the scale)
   synthRootNote = rightHandScale[0];
 
-  // Generate a dynamic right-hand arpeggio pattern
   rightHandArp = [];
-  for (let i = 0; i < totalBars; i++) {
-    let motif = [0]; // Always start on root note
-    let midPoint = nn.randomInt(3, 6); // Pick a mid-range peak
+  let lastNote = 0; // Track previous bar's last note
+  const scaleLength = rightHandScale.length;
 
-    // Ascending part
-    for (let j = 1; j < midPoint; j++) {
+  for (let barIdx = 0; barIdx < totalBars; barIdx++) {
+    let motif = [];
+    const startNote = barIdx === 0 ? 0 : lastNote;
+    
+    // Create wave-like pattern
+    const peak = Math.min(startNote + nn.randomInt(3, 5), scaleLength - 1);
+    
+    // Ascend to peak (4 notes)
+    for (let j = startNote; j <= peak && motif.length < 4; j++) {
       motif.push(j);
     }
 
-    // Descending part
-    for (let j = midPoint - 1; j > 0; j--) {
+    // Descend from peak (3 notes)
+    for (let j = peak - 1; j > startNote && motif.length < 7; j--) {
       motif.push(j);
     }
+    while (motif.length < 8) {
+      motif.push(motif[motif.length - 1]); // or some other logic to add a note
+    }
+    // Close the loop for final bar
+    if (barIdx === totalBars - 1) {
+      motif.push(0); // End on root
+    } else {
+      motif.push(motif[0]); // Connect to next bar
+    }
 
-    motif.push(0); // Ensure last note of the bar returns to root
-    rightHandArp.push(motif);
+    // Ensure exactly 8 notes
+    lastNote = motif[motif.length - 1];
+    rightHandArp.push(motif.slice(0, 8));
   }
+
   // Randomly select a synth type
   const synthOptions = ['MonoSynth', 'DuoSynth', 'FMSynth', 'AMSynth'];
   const synthChoice = nn.random(synthOptions);
@@ -102,7 +119,7 @@ function randomColdplay() {
       release: nn.random(2, 5)
     }
   }).toDestination();
-
+  synth.volume.value = -8;  // Lowers the synth by 12 dB
   // Add echo effect
   const echo = new Tone.FeedbackDelay("8n", nn.random(0.3, 0.4)).toDestination();
   synth.connect(echo);
@@ -112,11 +129,9 @@ function play (time) {
   // get current step && bar index
   const s = step % totalSteps
   const b = bar % totalBars
-
-  if (s % 4 === 0 && synthRootNote !== "-Infinity") {
+  if (s % 4 === 0 && typeof synthRootNote === 'string' && synthRootNote) {
     synth.triggerAttackRelease(synthRootNote, '4n', time);
   }
-
   // play right hand arpeggio
   const arp = rightHandArp[b];
   const notes = arp.map(i => rightHandScale[i]);
@@ -124,30 +139,48 @@ function play (time) {
   piano.triggerAttackRelease(note, '8n', time)
 
   // some visual feedbak
-  const hue = nn.randomInt(190, 230) // shade of blue
-  const saturation = nn.randomInt(25, 65)
+  const noteIndex = rightHandScale.indexOf(note);
+  const hue = Math.floor(360 * (noteIndex / rightHandScale.length));
+  const saturation = 60;  // A fixed saturation value for consistency
   nn.get('body').css({
     backgroundColor: `hsl(${hue}deg, ${saturation}%, 50%)`
-  })
+  });
 
   // update step/bar for next play call
   step++
-  if (s === totalSteps - 1) bar++
+  if (s === totalSteps - 1) {
+    const percussionRoll = Math.random();
+
+    if (percussionRoll < 0.25) {
+      // Option 1: Trigger two 8n beats
+      percussion.triggerAttackRelease("C2", "8n", time);
+      percussion.triggerAttackRelease("C2", "8n", time + Tone.Time("8n"));
+    } else if (percussionRoll < 0.5) {
+      // Option 2: Trigger four 16n beats
+      percussion.triggerAttackRelease("C2", "16n", time);
+      percussion.triggerAttackRelease("C2", "16n", time + Tone.Time("16n"));
+      percussion.triggerAttackRelease("C2", "16n", time + Tone.Time("16n") * 2);
+      percussion.triggerAttackRelease("C2", "16n", time + Tone.Time("16n") * 3);
+    } else if (percussionRoll < 0.75) {
+      // Option 3: Trigger one 4n beat
+      percussion.triggerAttackRelease("C2", "4n", time);
+    }
+  }
 }
 function toggle() {
   if (!hasStarted) {
     // First time clicking "cold-play", initialize music
     hasStarted = true;
-    randomColdplay();
+    randomTunnelVision();
     Tone.Transport.start();
-    toggleButton.content('cold-stop');
+    toggleButton.content('Tunnel-Visualize');
   } else {
     if (Tone.Transport.state === 'started') {
       Tone.Transport.stop();
-      toggleButton.content('cold-play');
+      toggleButton.content('Tunnel-Visualize');
     } else {
       Tone.Transport.start();
-      toggleButton.content('cold-stop');
+      toggleButton.content('Tunnel-Visualized');
     }
   }
 }
@@ -197,17 +230,15 @@ const toggleButton = nn.create('button')
   .on('mouseout', buttonHover)
   .on('click', toggle);
 
-// Create the randomize button
 nn.create('button')
   .content('randomize')
   .addTo(container)
   .css(buttonCSS)
   .on('mouseover', buttonHover)
   .on('mouseout', buttonHover)
-  .on('click', randomColdplay);
+  .on('click', randomTunnelVision);
 
-// Ensure `randomColdplay` initializes on page load
-nn.on('load', randomColdplay);
+nn.on('load', randomTunnelVision);
 
 
 </script>
